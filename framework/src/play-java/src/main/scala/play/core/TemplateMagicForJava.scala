@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.core.j
 
 import play.api.mvc._
@@ -38,7 +41,7 @@ object PlayMagicForJava {
       jField.errors.asScala.map { jE =>
         play.api.data.FormError(
           jE.key,
-          jE.message,
+          jE.messages.asScala,
           jE.arguments.asScala)
       },
       Option(jField.value)) {

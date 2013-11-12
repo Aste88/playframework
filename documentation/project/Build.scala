@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 import java.util.jar.JarFile
 import play.console.Colors
 import play.core.server.ServerWithStop
@@ -18,6 +21,7 @@ object ApplicationBuild extends Build {
       component("play-test") % "test",
       component("play-java") % "test",
       component("play-cache") % "test",
+      component("play-java-ws") % "test",
       component("filters-helpers") % "test",
       "org.mockito" % "mockito-core" % "1.9.5" % "test",
       component("play-docs")
@@ -28,11 +32,11 @@ object ApplicationBuild extends Build {
 
     unmanagedSourceDirectories in Test <++= javaManualSourceDirectories,
     unmanagedSourceDirectories in Test <++= scalaManualSourceDirectories,
-    unmanagedSourceDirectories in Test <++= (baseDirectory)(base => (base / "manual" / "detailledTopics" ** "code").get),
+    unmanagedSourceDirectories in Test <++= (baseDirectory)(base => (base / "manual" / "detailedTopics" ** "code").get),
 
     unmanagedResourceDirectories in Test <++= javaManualSourceDirectories,
     unmanagedResourceDirectories in Test <++= scalaManualSourceDirectories,
-    unmanagedResourceDirectories in Test <++= (baseDirectory)(base => (base / "manual" / "detailledTopics" ** "code").get),
+    unmanagedResourceDirectories in Test <++= (baseDirectory)(base => (base / "manual" / "detailedTopics" ** "code").get),
 
     parallelExecution in Test := false,
 
@@ -41,11 +45,11 @@ object ApplicationBuild extends Build {
     javacOptions ++= Seq("-g", "-Xlint:deprecation"),
 
     // Need to ensure that templates in the Java docs get Java imports, and in the Scala docs get Scala imports
-    sourceGenerators in Test <+= (state, javaManualSourceDirectories, sourceManaged in Test, templatesTypes) map { (s, ds, g, t) =>
-      ScalaTemplates(s, ds, g, t, defaultTemplatesImport ++ defaultJavaTemplatesImport)
+    sourceGenerators in Test <+= (state, javaManualSourceDirectories, sourceManaged in Test, templatesTypes, excludeFilter in unmanagedSources in Test) map { (s, ds, g, t, ef) =>
+      ScalaTemplates(s, ds, g, t, defaultTemplatesImport ++ defaultJavaTemplatesImport, ef)
     },
-    sourceGenerators in Test <+= (state, scalaManualSourceDirectories, sourceManaged in Test, templatesTypes) map { (s, ds, g, t) =>
-      ScalaTemplates(s, ds, g, t, defaultTemplatesImport ++ defaultScalaTemplatesImport)
+    sourceGenerators in Test <+= (state, scalaManualSourceDirectories, sourceManaged in Test, templatesTypes, excludeFilter in unmanagedSources in Test) map { (s, ds, g, t, ef) =>
+      ScalaTemplates(s, ds, g, t, defaultTemplatesImport ++ defaultScalaTemplatesImport, ef)
     },
 
     sourceGenerators in Test <+= (state, javaManualSourceDirectories, sourceManaged in Test) map  { (s, ds, g) =>

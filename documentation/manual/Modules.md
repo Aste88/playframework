@@ -1,3 +1,4 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # Play Modules
 
 > This is a temporary location for listing modules, until there will be a location to register them on the Play website.
@@ -98,6 +99,12 @@
 * **Repository:** <http://www.joergviola.de/releases/>
 * **Short description** Simplifies writing functional test using Page Driver classes.
 
+## Flyway plugin
+
+* **Website:** <https://github.com/tototoshi/play-flyway>
+* **Documentation:** <https://github.com/tototoshi/play-flyway/blob/master/README.md>
+* **Short Description:** Supports database migration with Flyway.
+
 ## Geolocation (Java)
 
 * **Website:** <https://github.com/blabluble/play-geolocation-module>
@@ -156,6 +163,12 @@
 
 * **Website:** <https://github.com/julienrf/play-jsonp-filter>
 * **Short description:** Enables JSONP on your existing HTTP API.
+
+## Lessc Plugin
+
+* **Website:** <https://github.com/jmparsons/play-lessc>
+* **Documentation:** <https://github.com/jmparsons/play-lessc/blob/master/README.md>
+* **Short description:** Allows [Less](http://lesscss.org/) command line compilation through Node
 
 ## Manual Dependency Injection Plugin (Java and Scala)
 * **Website (docs, sample):** <https://github.com/typesafehub/play-plugins>

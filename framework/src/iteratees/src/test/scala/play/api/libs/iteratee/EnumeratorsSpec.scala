@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.libs.iteratee
 
 import org.specs2.mutable._
@@ -136,6 +139,16 @@ object EnumeratorsSpec extends Specification
         count.get() must equalTo(1)
       }
     }
+
+    "call onDoneEnumerating callback when an error is encountered" in {
+      mustExecute(1) { onDoneEC =>
+        val count = new java.util.concurrent.atomic.AtomicInteger()
+        mustPropagateFailure(
+          Enumerator(1, 2, 3).onDoneEnumerating(count.incrementAndGet())(onDoneEC)
+        )
+        count.get() must_== 1
+      }
+    }
     
     "transform input elements with map" in {
       mustExecute(3) { mapEC =>
@@ -185,6 +198,42 @@ object EnumeratorsSpec extends Specification
   }
 
   "Enumerator.callback1" should {
+    "Call onError on iteratee's error state" in {
+      val it = Error[String]("foo", Input.Empty)
+      val errorCount = new AtomicInteger(0)
+
+      val enum = Enumerator.fromCallback1[String](
+        b => Future.successful(None),
+        () => (),
+        (msg, input) =>
+          errorCount.incrementAndGet()
+        )
+
+      val result = enum |>>> it
+
+      Await.ready(result, Duration(30, TimeUnit.SECONDS))
+      errorCount.get() must equalTo(1)
+    }
+
+    "Call onError on future failure" in {
+      val it1 = Iteratee.fold1[String, String](Future.successful(""))((_, _) => Future.failed(new RuntimeException()))
+      val it2 = Iteratee.fold1[String, String](Future.failed(new RuntimeException()))((_, _) => Future.failed(new RuntimeException()))
+      val errorCount = new AtomicInteger(0)
+
+      val enum = Enumerator.fromCallback1[String](
+        b => Future.successful(Some("")),
+        () => (),
+        (msg, input) =>
+          errorCount.incrementAndGet()
+        )
+
+      val result1 = enum |>>> it1
+      val result2 = enum |>>> it2
+      Await.ready(result1.zip(result2), Duration(2, TimeUnit.SECONDS))
+
+      errorCount.get() must equalTo(2)
+    }
+
     "generate a stream of values until the expression is None" in {
       mustExecute(5) { callbackEC =>
         val it = (1 to 3).iterator // FIXME: Probably not thread-safe
@@ -212,6 +261,30 @@ object EnumeratorsSpec extends Specification
         val s = "hello"
         val enumerator = Enumerator.fromStream(new ByteArrayInputStream(s.getBytes))(fromStreamEC).map(new String(_))
         mustEnumerateTo(s)(enumerator)
+      }
+    }
+    "close the stream" in {
+      class CloseableByteArrayInputStream(bytes: Array[Byte]) extends ByteArrayInputStream(bytes) {
+        @volatile var closed = false
+
+        override def close() = {
+          closed = true
+        }
+      }
+
+      "when done normally" in {
+        val stream = new CloseableByteArrayInputStream(Array.empty)
+        mustExecute(2) { fromStreamEC =>
+          Await.result(Enumerator.fromStream(stream)(fromStreamEC)(Iteratee.ignore), Duration.Inf)
+          stream.closed must beTrue
+        }
+      }
+      "when completed abnormally" in {
+        val stream = new CloseableByteArrayInputStream("hello".getBytes)
+        mustExecute(2) { fromStreamEC =>
+          mustPropagateFailure(Enumerator.fromStream(stream)(fromStreamEC))
+          stream.closed must beTrue
+        }
       }
     }
   }

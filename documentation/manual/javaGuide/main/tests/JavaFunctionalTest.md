@@ -1,3 +1,4 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # Writing functional tests
 
 ## Testing a template
@@ -63,7 +64,7 @@ public void testInServer() {
 
 ## Testing from within a web browser
 
-If you want to test your application from with a Web browser, you can use [Selenium WebDriver](http://code.google.com/p/selenium/?redir=1). Play will start the WebDriver for your, and wrap it in the convenient API provided by [FluentLenium](https://github.com/FluentLenium/FluentLenium).
+If you want to test your application from with a Web browser, you can use [Selenium WebDriver](http://code.google.com/p/selenium/?redir=1). Play will start the WebDriver for you, and wrap it in the convenient API provided by [FluentLenium](https://github.com/FluentLenium/FluentLenium).
 
 ```
 @Test

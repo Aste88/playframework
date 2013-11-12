@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.libs.concurrent
 
 import play.api._
@@ -24,21 +27,6 @@ object Akka {
     app.plugin[AkkaPlugin].map(_.applicationSystem).getOrElse {
       sys.error("Akka plugin is not registered.")
     }
-  }
-
-  /**
-   * Executes a block of code asynchronously in the application Akka Actor system.
-   *
-   * Example:
-   * {{{
-   * val promiseOfResult = Akka.future {
-   *    intensiveComputing()
-   * }
-   * }}}
-   */
-  @scala.deprecated("Use scala.concurrent.Future() instead.", "2.2")
-  def future[T](body: => T)(implicit app: Application): Future[T] = {
-    Future(body)(system.dispatcher)
   }
 
 }

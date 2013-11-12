@@ -1,8 +1,12 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.templates.test
 
 import org.specs2.mutable._
 
 import play.templates._
+import scalax.io.Resource
 
 object TemplateParserSpec extends Specification {
 
@@ -13,7 +17,7 @@ object TemplateParserSpec extends Specification {
     val parser = ScalaTemplateCompiler.templateParser
 
     def get(templateName: String) = {
-      new CharSequenceReader(scalax.file.Path.fromString("src/templates-compiler/src/test/templates/" + templateName).string)
+      new CharSequenceReader(Resource.fromClasspath(templateName, this.getClass).string)
     }
 
     def parse(templateName: String) = {

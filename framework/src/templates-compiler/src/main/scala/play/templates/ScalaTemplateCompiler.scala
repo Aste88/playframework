@@ -1,5 +1,8 @@
 import scala.util.parsing.input.OffsetPosition
 
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.templates {
 
   import scalax.file._
@@ -259,7 +262,8 @@ package play.templates {
           val p0 = p // avoid repeatedly re-evaluating by-name parser
           @tailrec
           def applyp(in0: Input): ParseResult[List[T]] = p0(in0) match {
-            case Success(x, rest) => elems += x; applyp(rest)
+            case Success(x, rest) =>
+              elems += x; applyp(rest)
             case Failure(_, _) => Success(elems.toList, in0)
             case err: Error => err
           }

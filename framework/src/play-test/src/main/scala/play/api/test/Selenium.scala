@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.test
 
 import play.api._
@@ -35,7 +38,7 @@ case class TestBrowser(webDriver: WebDriver, baseUrl: Option[String]) extends Fl
       case (fieldName, fieldValue) =>
         fill(s"${selector} *[name=${fieldName}]").`with`(fieldValue)
     }
-    submit(selector)
+    super.submit(selector)
   }
 
   /**
@@ -156,7 +159,6 @@ case class TestServer(port: Int, application: FakeApplication = FakeApplication(
       server = null
     }
     //play.api.libs.concurrent.Promise.resetSystem()
-    play.api.libs.ws.WS.resetClient()
   }
 
 }

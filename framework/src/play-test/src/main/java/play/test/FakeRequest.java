@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.test;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -56,14 +59,13 @@ public class FakeRequest {
     public FakeRequest withAnyContent(AnyContent content, String contentType, String method) {
         Map<String, Seq<String>> map = new HashMap<String, Seq<String>>(Scala.asJava(fake.headers().toMap()));
         map.put("Content-Type", Scala.toSeq(new String[] {contentType}));
-        fake = new play.api.test.FakeRequest(method, fake.uri(), new play.api.test.FakeHeaders(Scala.asScala(map).toSeq()), content, fake.remoteAddress(), fake.version(), fake.id(), fake.tags());
+        fake = new play.api.test.FakeRequest(method, fake.uri(), new play.api.test.FakeHeaders(Scala.asScala(map).toSeq()), content, fake.remoteAddress(), fake.version(), fake.id(), fake.tags(), fake.secure());
         return this;
     }
 
     /**
      * Set a Json Body to this request.
      * The <tt>Content-Type</tt> header of the request is set to <tt>application/json</tt>.
-     * The method is set to <tt>POST</tt>.
      * @param node the Json Node
      * @return the Fake Request
      */
@@ -75,12 +77,11 @@ public class FakeRequest {
     /**
      * Set a Json Body to this request.
      * The <tt>Content-Type</tt> header of the request is set to <tt>application/json</tt>.
-     * The method is set to <tt>POST</tt>.
      * @param json the JsValue
      * @return the Fake Request
      */
     public FakeRequest withJsonBody(JsValue json) {
-        return withAnyContent(new AnyContentAsJson(json), "application/json", Helpers.POST);
+        return withAnyContent(new AnyContentAsJson(json), "application/json", this.fake.getMethod());
     }
 
     /**
@@ -98,7 +99,7 @@ public class FakeRequest {
         Map<String, Seq<String>> map = new HashMap<String, Seq<String>>(Scala.asJava(fake.headers().toMap()));
         map.put("Content-Type", Scala.toSeq(new String[] {"application/json"}));
         AnyContentAsJson content = new AnyContentAsJson(play.api.libs.json.Json.parse(node.toString()));
-        fake = new play.api.test.FakeRequest(method, fake.uri(), new play.api.test.FakeHeaders(Scala.asScala(map).toSeq()), content, fake.remoteAddress(), fake.version(), fake.id(), fake.tags());
+        fake = new play.api.test.FakeRequest(method, fake.uri(), new play.api.test.FakeHeaders(Scala.asScala(map).toSeq()), content, fake.remoteAddress(), fake.version(), fake.id(), fake.tags(), fake.secure());
         return this;
     }
 
@@ -178,34 +179,31 @@ public class FakeRequest {
     /**
      * Set a Binary Data to this request.
      * The <tt>Content-Type</tt> header of the request is set to <tt>application/octet-stream</tt>.
-     * The method is set to <tt>POST</tt>.
      * @param data the Binary Data
      * @return the Fake Request
      */
     public FakeRequest withRawBody(byte[] data) {
-        return withAnyContent(new AnyContentAsRaw(new RawBuffer(data.length, data)), "application/octet-stream", Helpers.POST);
+        return withAnyContent(new AnyContentAsRaw(new RawBuffer(data.length, data)), "application/octet-stream", this.fake.getMethod());
     }
 
     /**
      * Set a XML to this request.
      * The <tt>Content-Type</tt> header of the request is set to <tt>application/xml</tt>.
-     * The method is set to <tt>POST</tt>.
      * @param xml the XML
      * @return the Fake Request
      */
     public FakeRequest withXmlBody(InputSource xml) {
-        return withAnyContent(new AnyContentAsXml(scala.xml.XML.load(xml)), "application/xml", Helpers.POST);
+        return withAnyContent(new AnyContentAsXml(scala.xml.XML.load(xml)), "application/xml", this.fake.getMethod());
     }
 
     /**
      * Set a Text to this request.
      * The <tt>Content-Type</tt> header of the request is set to <tt>text/plain</tt>.
-     * The method is set to <tt>POST</tt>.
      * @param xml the XML
      * @return the Fake Request
      */
     public FakeRequest withTextBody(String text) {
-        return withAnyContent(new AnyContentAsText(text), "text/plain", Helpers.POST);
+        return withAnyContent(new AnyContentAsText(text), "text/plain", this.fake.getMethod());
     }
 
     /**

@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.it.http.assets
 
 import controllers.Assets
@@ -9,7 +12,7 @@ import play.api.{Configuration, Mode}
 import play.api.mvc.Handler
 import play.utils.{UriEncoding, Threads}
 
-object AssetsSpec extends PlaySpecification {
+object AssetsSpec extends PlaySpecification with WsTestClient {
   "Assets controller" should {
 
     val defaultCacheControl = Some("max-age=3600")

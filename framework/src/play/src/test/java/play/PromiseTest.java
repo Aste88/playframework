@@ -1,23 +1,38 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play;
 
 import org.junit.Test;
 
-import play.libs.F.Promise;
-import play.libs.F.Tuple;
+import play.libs.F;
 
 import static org.fest.assertions.Assertions.assertThat;
-import static org.fest.assertions.MapAssert.entry;
 
 public class PromiseTest {
 
     @Test
-    public void zip() {
-        Promise<String> a = Promise.pure("a");
-        Promise<Integer> b = Promise.pure(10);
-        Tuple<String, Integer> ab = a.zip(b).get();
-        assertThat(ab._1).isEqualTo("a");
-        assertThat(ab._2).isEqualTo(10);
+    public void testSupertypeMap() {
+        F.Promise<Integer> a = F.Promise.pure(1);
+
+        F.Promise<String> b = a.map(new F.Function<Object, String>() {
+          public String apply(Object o) {
+            return o.toString();
+          }
+        });
+        assertThat(b.get(1L)).isEqualTo("1");
     }
 
+    @Test
+    public void testSupertypeFlatMap() {
+        F.Promise<Integer> a = F.Promise.pure(1);
+
+        F.Promise<String> b = a.flatMap(new F.Function<Object, F.Promise<String>>() {
+          public F.Promise<String> apply(Object o) {
+            return F.Promise.pure(o.toString());
+          }
+        });
+        assertThat(b.get(1L)).isEqualTo("1");
+    }
 }
 

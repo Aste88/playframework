@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.core.j
 
 import play.mvc.{ SimpleResult => JSimpleResult }
@@ -65,6 +68,8 @@ trait JavaHelpers {
 
       def remoteAddress = req.remoteAddress
 
+      def secure = req.secure
+
       def host = req.host
 
       def path = req.path
@@ -86,8 +91,23 @@ trait JavaHelpers {
       def accepts(mediaType: String) = req.accepts(mediaType)
 
       def cookies = new JCookies {
-        def get(name: String) = (for (cookie <- req.cookies.get(name))
-          yield new JCookie(cookie.name, cookie.value, cookie.maxAge.map(i => new Integer(i)).orNull, cookie.path, cookie.domain.orNull, cookie.secure, cookie.httpOnly)).getOrElse(null)
+        def get(name: String): JCookie = {
+          req.cookies.get(name).map(makeJavaCookie).orNull
+        }
+
+        private def makeJavaCookie(cookie: Cookie): JCookie = {
+          new JCookie(cookie.name,
+            cookie.value,
+            cookie.maxAge.map(i => new Integer(i)).orNull,
+            cookie.path,
+            cookie.domain.orNull,
+            cookie.secure,
+            cookie.httpOnly)
+        }
+
+        def iterator: java.util.Iterator[JCookie] = {
+          req.cookies.toIterator.map(makeJavaCookie).asJava
+        }
       }
 
       override def toString = req.toString
@@ -125,6 +145,8 @@ trait JavaHelpers {
 
       def remoteAddress = req.remoteAddress
 
+      def secure = req.secure
+
       def host = req.host
 
       def path = req.path
@@ -146,8 +168,23 @@ trait JavaHelpers {
       }
 
       def cookies = new JCookies {
-        def get(name: String) = (for (cookie <- req.cookies.get(name))
-          yield new JCookie(cookie.name, cookie.value, cookie.maxAge.map(i => new Integer(i)).orNull, cookie.path, cookie.domain.orNull, cookie.secure, cookie.httpOnly)).getOrElse(null)
+        def get(name: String): JCookie = {
+          req.cookies.get(name).map(makeJavaCookie).orNull
+        }
+
+        private def makeJavaCookie(cookie: Cookie): JCookie = {
+          new JCookie(cookie.name,
+            cookie.value,
+            cookie.maxAge.map(i => new Integer(i)).orNull,
+            cookie.path,
+            cookie.domain.orNull,
+            cookie.secure,
+            cookie.httpOnly)
+        }
+
+        def iterator: java.util.Iterator[JCookie] = {
+          req.cookies.toIterator.map(makeJavaCookie).asJava
+        }
       }
 
       override def toString = req.toString

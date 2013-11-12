@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.libs.iteratee
 
 import org.specs2.mutable._
@@ -301,6 +304,19 @@ object IterateesSpec extends Specification
     "return its input as a list" in {
       val s = List(1, 2, 3, 4, 5)
       await(Enumerator.enumerateSeq1(s) |>>> Iteratee.getChunks[Int]) must equalTo(s)
+    }
+
+  }
+
+  "Iteratee.ignore" should {
+
+    "never throw an OutOfMemoryError when consuming large input" in {
+      // Work out how many arrays we'd need to create to trigger an OutOfMemoryError
+      val arraySize = 1000000
+      val tooManyArrays = (Runtime.getRuntime.maxMemory / arraySize).toInt + 1
+      val iterator = Iterator.range(0, tooManyArrays).map(_ => new Array[Byte](arraySize))
+      import play.api.libs.iteratee.Execution.Implicits.defaultExecutionContext
+      await(Enumerator.enumerate(iterator) |>>> Iteratee.ignore[Array[Byte]]) must_== ()
     }
 
   }

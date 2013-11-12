@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 import sbt._
 import Keys._
 import play.Project._
@@ -10,6 +13,7 @@ object ApplicationBuild extends Build {
     val appDependencies = Seq(
     	javaCore,
     	javaEbean,
+      javaWs,
       "org.hamcrest" % "hamcrest-all" % "1.3"
     )
 

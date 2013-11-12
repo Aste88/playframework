@@ -1,9 +1,11 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.test
 
 import scala.language.reflectiveCalls
 
 import play.api._
-import libs.ws.WS
 import play.api.mvc._
 import play.api.http._
 
@@ -45,7 +47,6 @@ trait PlayRunners {
         block
       } finally {
         Play.stop()
-        play.api.libs.ws.WS.resetClient()
       }
     }
   }
@@ -68,11 +69,18 @@ trait PlayRunners {
    * Executes a block of code in a running server, with a test browser.
    */
   def running[T, WEBDRIVER <: WebDriver](testServer: TestServer, webDriver: Class[WEBDRIVER])(block: TestBrowser => T): T = {
+    running(testServer, WebDriverFactory(webDriver))(block)
+  }
+
+  /**
+   * Executes a block of code in a running server, with a test browser.
+   */
+  def running[T](testServer: TestServer, webDriver: WebDriver)(block: TestBrowser => T): T = {
     var browser: TestBrowser = null
     synchronized {
       try {
         testServer.start()
-        browser = TestBrowser.of(webDriver)
+        browser = TestBrowser(webDriver, None)
         block(browser)
       } finally {
         if (browser != null) {
@@ -166,24 +174,6 @@ trait FutureAwaits {
   def await[T](future: Future[T], timeout: Long, unit: TimeUnit = TimeUnit.MILLISECONDS): T =
     Await.result(future, Duration(timeout, unit))
 
-}
-
-trait WsTestClient {
-
-  /**
-   * Construct a WS request for the given reverse route.
-   *
-   * For example:
-   * {{{
-   *   wsCall(controllers.routes.Application.index()).get()
-   * }}}
-   */
-  def wsCall(call: Call)(implicit port: Port): WS.WSRequestHolder = wsUrl(call.url)
-
-  /**
-   * Construct a WS request for the given relative URL.
-   */
-  def wsUrl(url: String)(implicit port: Port): WS.WSRequestHolder = WS.url("http://localhost:" + port + url)
 }
 
 trait RouteInvokers {
@@ -388,5 +378,4 @@ object Helpers extends PlayRunners
   with ResultExtractors
   with Writeables
   with RouteInvokers
-  with WsTestClient
   with FutureAwaits

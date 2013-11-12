@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.data.validation;
 
 import java.util.*;
@@ -10,7 +13,7 @@ import com.google.common.collect.ImmutableList;
 public class ValidationError {
     
     private String key;
-    private String message;
+    private List<String> messages;
     private List<Object> arguments;
 
     /**
@@ -32,22 +35,42 @@ public class ValidationError {
      */
     public ValidationError(String key, String message, List<Object> arguments) {
         this.key = key;
-        this.message = message;
+        this.arguments = arguments;
+        this.messages = ImmutableList.of(message);
+    }
+
+    /**
+     * Constructs a new <code>ValidationError</code>.
+     *
+     * @param key the error key
+     * @param messages the list of error messages
+     * @param arguments the error message arguments
+     */
+    public ValidationError(String key, List<String> messages, List<Object> arguments) {
+        this.key = key;
+        this.messages = messages;
         this.arguments = arguments;
     }
-    
+
     /**
      * Returns the error key.
      */
     public String key() {
         return key;
     }
-    
+
     /**
      * Returns the error message.
      */
     public String message() {
-        return message;
+        return messages.get(messages.size()-1);
+    }
+
+    /**
+     * Returns the error messages.
+     */
+    public List<String> messages() {
+        return messages;
     }
 
     /**
@@ -56,9 +79,9 @@ public class ValidationError {
     public List<Object> arguments() {
         return arguments;
     }
-    
+
     public String toString() {
-        return "ValidationError(" + key + "," + message + "," + arguments + ")";
+        return "ValidationError(" + key + "," + messages + "," + arguments + ")";
     }
-    
+
 }

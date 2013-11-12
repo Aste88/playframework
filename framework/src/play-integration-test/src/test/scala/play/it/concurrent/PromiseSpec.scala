@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.it.concurrent
 
 import play.api.test._
@@ -22,6 +25,20 @@ class PromiseSpec extends PlaySpecification {
     "Thrown values" in new WithApplication() {
       val p = Promise.timeout(42, 100).map[Int]{ _ => throw new Exception("foo") }
       await(p.filter(_ => true)) must throwAn [Exception](message = "foo")
+    }
+
+  }
+
+  "Promise timeouts" should {
+
+    "yield their message" in new WithApplication() {
+      val future = Promise.timeout("hello", 10)
+      await(future) must_== "hello"
+    }
+
+    "yield any exceptions thrown when generating a message" in new WithApplication() {
+      val future = Promise.timeout[Unit](throw new Exception("error!"), 10)
+      await(future) must throwAn[Exception](message = "error!")
     }
 
   }

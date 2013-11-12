@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package test
 
 import org.specs2.mutable._
@@ -8,7 +11,7 @@ import play.api.libs.json.{JsValue, Json, JsObject}
 import scala.concurrent.duration.Duration
 import scala.concurrent.Await
 
-class SimpleSpec extends Specification {
+class SimpleSpec extends Specification with WsTestClient {
   
   "my application" should {
     

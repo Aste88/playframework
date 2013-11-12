@@ -1,7 +1,11 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 import sbt._
 import Keys._
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.plugin.MimaKeys.previousArtifact
+import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
+import com.typesafe.tools.mima.core._
 import com.typesafe.sbt.SbtScalariform.defaultScalariformSettings
 
 object BuildSettings {
@@ -18,15 +22,15 @@ object BuildSettings {
     (x => x == "true" || x == "") map
     (_ => true) getOrElse default
 
-  val experimental = Option(System.getProperty("experimental")).filter(_ == "true").map(_ => true).getOrElse(false)
+  val experimental = Option(System.getProperty("experimental")).exists(_ == "true")
 
   val buildOrganization = "com.typesafe.play"
   val buildVersion = propOr("play.version", "2.3-SNAPSHOT")
   val buildWithDoc = boolProp("generate.doc")
   val previousVersion = "2.1.0"
-  val buildScalaVersion = propOr("scala.version", "2.10.2")
+  val buildScalaVersion = propOr("scala.version", "2.10.3")
   // TODO - Try to compute this from SBT... or not.
-  val buildScalaVersionForSbt = propOr("play.sbt.scala.version", "2.10.2")
+  val buildScalaVersionForSbt = propOr("play.sbt.scala.version", "2.10.3")
   val buildScalaBinaryVersionForSbt = CrossVersion.binaryScalaVersion(buildScalaVersionForSbt)
   val buildSbtVersion = propOr("play.sbt.version", "0.13.0")
   val buildSbtMajorVersion = "0.13"
@@ -47,6 +51,7 @@ object BuildSettings {
     javacOptions in doc := Seq("-source", "1.6"),
     resolvers ++= typesafeResolvers,
     fork in Test := true,
+    testListeners in (Test,test) := Nil,
     testOptions in Test += Tests.Filter(!_.endsWith("Benchmark")),
     testOptions in PerformanceTest ~= (_.filterNot(_.isInstanceOf[Tests.Filter]) :+ Tests.Filter(_.endsWith("Benchmark"))),
     parallelExecution in PerformanceTest := false
@@ -60,7 +65,7 @@ object BuildSettings {
 
   def PlaySharedJavaProject(name: String, dir: String, testBinaryCompatibility: Boolean = false): Project = {
     val bcSettings: Seq[Setting[_]] = if (testBinaryCompatibility) {
-      mimaDefaultSettings ++ Seq(previousArtifact := Some(buildOrganization % name % previousVersion))
+      mimaDefaultSettings ++ Seq(previousArtifact := Some(buildOrganization % StringUtilities.normalize(name) % previousVersion))
     } else Nil
     Project(name, file("src/" + dir))
       .configs(PerformanceTest)
@@ -85,7 +90,8 @@ object BuildSettings {
   }
 
   def playRuntimeSettings(name: String): Seq[Setting[_]] = Seq(
-    previousArtifact := Some(buildOrganization %% name % previousVersion),
+    previousArtifact := Some(buildOrganization %
+      (StringUtilities.normalize(name) + "_" + CrossVersion.binaryScalaVersion(buildScalaVersion)) % previousVersion),
     scalacOptions ++= Seq("-encoding", "UTF-8", "-Xlint", "-deprecation", "-unchecked", "-feature"),
     publishArtifact in packageDoc := buildWithDoc,
     publishArtifact in (Compile, packageSrc) := true,
@@ -101,7 +107,7 @@ object BuildSettings {
         scalaBinaryVersion := CrossVersion.binaryScalaVersion(buildScalaVersionForSbt),
         publishTo := Some(publishingMavenRepository),
         publishArtifact in packageDoc := false,
-        publishArtifact in (Compile, packageSrc) := false,
+        publishArtifact in (Compile, packageSrc) := true,
         scalacOptions ++= Seq("-encoding", "UTF-8", "-Xlint", "-deprecation", "-unchecked"))
   }
 }
@@ -122,7 +128,7 @@ object Resolvers {
   val sonatypeSnapshots = "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 
   val isSnapshotBuild = buildVersion.endsWith("SNAPSHOT")
-  val typesafeResolvers = if (isSnapshotBuild) Seq(typesafeReleases, typesafeSnapshots) else Seq(typesafeReleases)
+  val typesafeResolvers = if (isSnapshotBuild) Seq(typesafeReleases, typesafeIvyReleases, typesafeSnapshots, typesafeIvySnapshots) else Seq(typesafeReleases, typesafeIvyReleases)
   val publishingMavenRepository = if (isSnapshotBuild) publishTypesafeMavenSnapshots else publishTypesafeMavenReleases
   val publishingIvyRepository = if (isSnapshotBuild) publishTypesafeIvySnapshots else publishTypesafeIvyReleases
 }
@@ -154,6 +160,7 @@ object PlayBuild extends Build {
     )
 
   lazy val AnormProject = PlayRuntimeProject("Anorm", "anorm")
+    .settings(libraryDependencies ++= anormDependencies)
 
   lazy val IterateesProject = PlayRuntimeProject("Play-Iteratees", "iteratees")
     .settings(libraryDependencies := iterateesDependencies)
@@ -220,14 +227,13 @@ object PlayBuild extends Build {
   lazy val PlayJavaProject = PlayRuntimeProject("Play-Java", "play-java")
     .settings(libraryDependencies := javaDeps)
     .dependsOn(PlayProject)
-    .dependsOn(PlayTestProject % "test")
 
   lazy val PlayDocsProject = PlayRuntimeProject("Play-Docs", "play-docs")
     .settings(Docs.settings: _*)
     .settings(
       libraryDependencies := playDocsDependencies
     ).dependsOn(PlayProject)
-  
+
   import ScriptedPlugin._
 
   lazy val SbtPluginProject = PlaySbtProject("SBT-Plugin", "sbt-plugin")
@@ -265,25 +271,45 @@ object PlayBuild extends Build {
 
   lazy val ConsoleProject = PlaySbtProject("Console", "console")
     .settings(
-      resolvers += typesafeIvyReleases,
       libraryDependencies := consoleDependencies,
       sourceGenerators in Compile <+= sourceManaged in Compile map PlayVersion
     )
 
+  lazy val PlayWsProject = PlayRuntimeProject("Play-WS", "play-ws")
+    .settings(
+      libraryDependencies := playWsDeps,
+      parallelExecution in Test := false
+    ).dependsOn(PlayProject)
+    .dependsOn(PlayTestProject % "test")
+
+  lazy val PlayWsJavaProject = PlayRuntimeProject("Play-Java-WS", "play-java-ws")
+      .settings(
+        parallelExecution in Test := false
+      ).dependsOn(PlayProject)
+    .dependsOn(PlayWsProject)
+
   lazy val PlayFiltersHelpersProject = PlayRuntimeProject("Filters-Helpers", "play-filters-helpers")
-    .dependsOn(PlayProject, PlayTestProject % "test", PlayJavaProject % "test")
+    .settings(
+      parallelExecution in Test := false
+    ).dependsOn(PlayProject, PlayTestProject % "test", PlayJavaProject % "test", PlayWsProject % "test")
 
   // This project is just for testing Play, not really a public artifact
   lazy val PlayIntegrationTestProject = PlayRuntimeProject("Play-Integration-Test", "play-integration-test")
     .settings(
       parallelExecution in Test := false,
-      libraryDependencies := integrationTestDependencies
+      libraryDependencies := integrationTestDependencies,
+      previousArtifact := None
     )
-    .dependsOn(PlayProject % "test->test", PlayTestProject)
+    .dependsOn(PlayProject % "test->test", PlayWsProject, PlayWsJavaProject, PlayTestProject)
+    .dependsOn(PlayFiltersHelpersProject)
+    .dependsOn(PlayJavaProject)
 
   lazy val PlayCacheProject = PlayRuntimeProject("Play-Cache", "play-cache")
-    .settings(libraryDependencies := playCacheDeps)
-    .dependsOn(PlayProject)
+    .settings(
+      libraryDependencies := playCacheDeps,
+      parallelExecution in Test := false
+    ).dependsOn(PlayProject)
+    .dependsOn(PlayTestProject % "test")
 
   import RepositoryBuilder._
   lazy val RepositoryProject = Project(
@@ -320,6 +346,8 @@ object PlayBuild extends Build {
     PlayJavaJdbcProject,
     PlayEbeanProject,
     PlayJpaProject,
+    PlayWsProject,
+    PlayWsJavaProject,
     SbtPluginProject,
     ConsoleProject,
     PlayTestProject,
@@ -328,13 +356,14 @@ object PlayBuild extends Build {
     PlayFiltersHelpersProject,
     PlayIntegrationTestProject
   )
-    
+
   lazy val Root = Project(
     "Root",
     file("."))
     .settings(playCommonSettings: _*)
     .settings(dontPublishSettings:_*)
     .settings(
+      concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
       libraryDependencies := (runtime ++ jdbcDeps),
       Docs.apiDocsInclude := false,
       Docs.apiDocsIncludeManaged := false,

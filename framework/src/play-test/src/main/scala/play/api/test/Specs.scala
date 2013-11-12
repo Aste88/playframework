@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.test
 
 import org.specs2.mutable.Around
@@ -43,14 +46,14 @@ abstract class WithServer(val app: FakeApplication = FakeApplication(),
  * @param port The port to run the server on
  */
 abstract class WithBrowser[WEBDRIVER <: WebDriver](
-    val webDriver: Class[WEBDRIVER] = Helpers.HTMLUNIT,
+    val webDriver: WebDriver = WebDriverFactory(Helpers.HTMLUNIT),
     val app: FakeApplication = FakeApplication(),
     val port: Int = Helpers.testServerPort) extends Around with Scope {
 
   implicit def implicitApp = app
   implicit def implicitPort: Port = port
 
-  lazy val browser: TestBrowser = TestBrowser.of(webDriver, Some("http://localhost:" + port))
+  lazy val browser: TestBrowser = TestBrowser(webDriver, Some("http://localhost:" + port))
 
   override def around[T: AsResult](t: => T): Result = {
     try {

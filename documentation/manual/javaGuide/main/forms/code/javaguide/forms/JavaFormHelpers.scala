@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package javaguide.forms
 
 import org.specs2.mutable.Specification
@@ -39,8 +42,8 @@ object JavaFormHelpers extends Specification {
 
       "allow repeated form fields" in {
         val input = segment("repeat")
-        input must contain("emails[0]")
-        input must contain("emails[1]")
+        input must contain("emails.0")
+        input must contain("emails.1")
       }
     }
 

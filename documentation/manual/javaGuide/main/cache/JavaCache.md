@@ -1,3 +1,4 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # The Play cache API
 
 Caching data is a typical optimization in modern applications, and so Play provides a global cache. An important point about the cache is that it behaves just like a cache should: the data you just stored may just go missing.
@@ -17,7 +18,7 @@ Using this simple API you can store data in the cache:
 
 @[simple-set](code/javaguide/cache/JavaCache.java)
 
-Optionally you can specify a expiration (in seconds) for the cache:
+Optionally you can specify an expiration (in seconds) for the cache:
 
 @[time-set](code/javaguide/cache/JavaCache.java)
 

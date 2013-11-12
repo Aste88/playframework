@@ -4,6 +4,9 @@ import scala.language.implicitConversions
 
 import scala.collection.JavaConverters._
 
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package views.html.helper {
 
   case class FieldElements(id: String, field: play.api.data.Field, input: Html, args: Map[Symbol, Any], lang: play.api.i18n.Lang) {
@@ -64,7 +67,7 @@ package views.html.helper {
   object repeat {
 
     def apply(field: play.api.data.Field, min: Int = 1)(f: play.api.data.Field => Html) = {
-      (0 until math.max(if (field.indexes.isEmpty) 0 else field.indexes.max + 1, min)).map(i => f(field("[" + i + "]")))
+      (0 until math.max(if (field.indexes.isEmpty) 0 else field.indexes.max + 1, min)).map(i => f(field(i + "")))
     }
 
   }

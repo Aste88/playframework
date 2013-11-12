@@ -1,3 +1,4 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # The Play WS API
 
 Sometimes you want to call other HTTP services from within a Play application. Play supports this via its `play.libs.WS` library, which provides a way to make asynchronous HTTP calls.
@@ -6,7 +7,15 @@ A call made by `play.libs.WS` should return a `Promise<WS.Response>`, which you 
 
 ## Imports
 
-To use WS, first import the following packages:
+To use WS, first add `javaWs` to your `build.sbt` file:
+
+```scala
+libraryDependencies ++= Seq(
+  javaWs
+)
+```
+
+Then, import the following packages:
 
 @[ws-imports](code/javaguide/ws/JavaWS.java)
 

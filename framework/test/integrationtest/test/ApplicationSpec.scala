@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package test
 
 import play.api.test._
@@ -8,7 +11,7 @@ import module.Routes
 
 import scala.concurrent.Future
 
-class ApplicationSpec extends PlaySpecification {
+class ApplicationSpec extends PlaySpecification with WsTestClient {
 
   "an Application" should {
   
@@ -22,14 +25,14 @@ class ApplicationSpec extends PlaySpecification {
       contentAsString(result) must contain("Hello world")
     }
 
-    "tess custom validator failure" in new WithApplication() {
+    "test custom validator failure" in new WithApplication() {
       import play.data._
        val userForm = new Form(classOf[JUser])
        val anyData = new java.util.HashMap[String,String]
        anyData.put("email", "")
-       userForm.bind(anyData).errors.toString must contain("ValidationError(email,error.invalid,[class validator.NotEmpty]")
+       userForm.bind(anyData).errors.toString must contain("ValidationError(email,[error.invalid],[class validator.NotEmpty]")
     }
-    "tess custom validator passing" in new WithApplication() {
+    "test custom validator passing" in new WithApplication() {
       import play.data._
        val userForm = new Form(classOf[JUser])
        val anyData = new java.util.HashMap[String,String]
@@ -331,7 +334,17 @@ class ApplicationSpec extends PlaySpecification {
         await(wsUrl("/xml").withHeaders("Content-Type" -> "application/xml").post(<foo>bar</foo>)).header("Content-Type").get must startWith("application/xml")
       }
     }
-    
+
+    "execute Java Promise" in new WithApplication() {
+      val Some(result) = route(FakeRequest(GET, "/promised"))
+      status(result) must equalTo(OK)
+    }
+
+    "execute Java Promise in controller instance" in new WithApplication() {
+      val Some(result) = route(FakeRequest(GET, "/promisedInstance"))
+      status(result) must equalTo(OK)
+    }
+
   }
 
 }

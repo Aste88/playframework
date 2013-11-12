@@ -1,3 +1,4 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # OpenID Support in Play
 
 OpenID is a protocol for users to access several services with a single account. As a web developer, you can use OpenID to offer users a way to log in using an account they already have, such as their [Google account](https://developers.google.com/accounts/docs/OpenID). In the enterprise, you may be able to use OpenID to connect to a company’s SSO server.
@@ -10,6 +11,16 @@ OpenID is a protocol for users to access several services with a single account.
 4. Your server receives information from that redirect, and checks with the provider that the information is correct.
 
 Step 1 may be omitted if all your users are using the same OpenID provider (for example if you decide to rely completely on Google accounts).
+
+## Usage
+
+To use OpenId, first add `ws`  to your `build.sbt` file:
+
+```scala
+libraryDependencies ++= Seq(
+  ws
+)
+```
 
 ## OpenID in Play
 

@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.test;
 
 import play.*;
@@ -45,7 +48,7 @@ public class Helpers implements play.mvc.Http.Status, play.mvc.Http.HeaderNames 
         if (result == null) {
             return null;
         } else {
-            final play.api.mvc.SimpleResult simpleResult = new Promise<play.api.mvc.SimpleResult>(result).get();
+            final play.api.mvc.SimpleResult simpleResult = new Promise<play.api.mvc.SimpleResult>(result).get(10000);
             return new SimpleResult() {
                 public play.api.mvc.SimpleResult getWrappedSimpleResult() {
                     return simpleResult;
@@ -207,10 +210,17 @@ public class Helpers implements play.mvc.Http.Status, play.mvc.Http.HeaderNames 
     }
 
     /**
-     * * Extracts a Cookie value from this Result value
+     * Extracts a Cookie value from this Result value
      */
     public static play.mvc.Http.Cookie cookie(String name, Result result) {
         return play.core.j.JavaResultExtractor.getCookies(unwrapJavaResult(result)).get(name);
+    }
+
+    /**
+     * Extracts the Cookies (an iterator) from this result value.
+     */
+    public static play.mvc.Http.Cookies cookies(Result result) {
+       return play.core.j.JavaResultExtractor.getCookies(unwrapJavaResult(result));
     }
 
     /**
@@ -364,7 +374,6 @@ public class Helpers implements play.mvc.Http.Status, play.mvc.Http.HeaderNames 
      */
     public static void stop(FakeApplication fakeApplication) {
         play.api.Play.stop();
-        play.api.libs.ws.WS$.MODULE$.resetClient();
     }
 
     /**
@@ -424,6 +433,13 @@ public class Helpers implements play.mvc.Http.Status, play.mvc.Http.HeaderNames 
      * Executes a block of code in a running server, with a test browser.
      */
     public static synchronized void running(TestServer server, Class<? extends WebDriver> webDriver, final Callback<TestBrowser> block) {
+        running(server, play.api.test.WebDriverFactory.apply(webDriver), block);
+    }
+
+    /**
+     * Executes a block of code in a running server, with a test browser.
+     */
+    public static synchronized void running(TestServer server, WebDriver webDriver, final Callback<TestBrowser> block) {
         TestBrowser browser = null;
         TestServer startedServer = null;
         try {

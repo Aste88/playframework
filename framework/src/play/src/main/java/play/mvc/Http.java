@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.mvc;
 
 import java.io.*;
@@ -126,10 +129,18 @@ public class Http {
          * @return true if the requested lang was supported by the application, otherwise false.
          */
         public boolean changeLang(String code) {
-            Lang lang = Lang.forCode(code);
+            return changeLang(Lang.forCode(code));
+        }
+
+        /**
+         * Change durably the lang for the current user.
+         * @param lang New Lang object to use.
+         * @return true if the requested lang was supported by the application, otherwise false.
+         */
+        public boolean changeLang(Lang lang) {
             if (Lang.availables().contains(lang)) {
                 this.lang = lang;
-                response.setCookie(Play.langCookieName(), code);
+                response.setCookie(Play.langCookieName(), lang.code());
                 return true;
             } else {
                 return false;
@@ -228,6 +239,15 @@ public class Http {
          * application configuration file.
          */
         public abstract String remoteAddress();
+
+        /**
+         * Is the client using SSL?
+         *
+         * If the <code>X-Forwarded-Proto</code> header is present, then this method will return true
+         * if the value in that header is "https", if either the local address is 127.0.0.1, or if
+         * <code>trustxforwarded</code> is configured to be true in the application configuration file.
+         */
+        public abstract boolean secure();
 
         /**
          * The request host.
@@ -857,7 +877,7 @@ public class Http {
     /**
      * HTTP Cookies set
      */
-    public interface Cookies {
+    public interface Cookies extends Iterable<Cookie> {
 
         /**
          * @param name Name of the cookie to retrieve

@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 import sbt._
 import play.Project._
 
@@ -9,6 +12,7 @@ object ApplicationBuild extends Build {
   val appDependencies = Seq(
     javaJdbc,
     javaCore,
+    javaWs,
     anorm,
     cache)
 

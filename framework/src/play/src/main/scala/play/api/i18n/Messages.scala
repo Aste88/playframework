@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.i18n
 
 import scala.language.postfixOps
@@ -143,6 +146,26 @@ object Messages {
   }
 
   /**
+   * Translates the first defined message.
+   *
+   * Uses `java.text.MessageFormat` internally to format the message.
+   *
+   * @param key the message key
+   * @param args the message arguments
+   * @return the formatted message or a default rendering if the key wasn’t defined
+   */
+  def apply(keys: Seq[String], args: Any*)(implicit lang: Lang): String = {
+    Play.maybeApplication.flatMap { app =>
+      app.plugin[MessagesPlugin].map { plugin =>
+        keys.foldLeft[Option[String]](None) {
+          case (None, key) => plugin.api.translate(key, args)
+          case (acc, _) => acc
+        }
+      }.getOrElse(throw new Exception("this plugin was not registered or disabled"))
+    }.getOrElse(noMatch(keys(keys.length - 1), args))
+  }
+
+  /**
    * Check if a message key is defined.
    * @param key the message key
    * @return a boolean
@@ -158,6 +181,15 @@ object Messages {
    */
   def messages(implicit app: Application): Map[String, Map[String, String]] = {
     app.plugin[MessagesPlugin].map(_.api.messages).getOrElse(throw new Exception("this plugin was not registered or disabled"))
+  }
+
+  /**
+   * Parse all messages of a given input.
+   */
+  def messages(messageInput: scalax.io.Input, messageSourceName: String): Either[PlayException.ExceptionSource, Map[String, String]] = {
+    new Messages.MessagesParser(messageInput, "").parse.right.map { messages =>
+      messages.map { message => message.key -> message.pattern }.toMap
+    }
   }
 
   private def noMatch(key: String, args: Seq[Any]) = key
@@ -212,17 +244,17 @@ object Messages {
       }
     }
 
-    def parse = {
+    def parse: Either[PlayException.ExceptionSource, Seq[Message]] = {
       parser(new CharSequenceReader(messageInput.string + "\n")) match {
-        case Success(messages, _) => messages
-        case NoSuccess(message, in) => {
-          throw new PlayException.ExceptionSource("Configuration error", message) {
+        case Success(messages, _) => Right(messages)
+        case NoSuccess(message, in) => Left(
+          new PlayException.ExceptionSource("Configuration error", message) {
             def line = in.pos.line
             def position = in.pos.column - 1
             def input = messageInput.string
             def sourceName = messageSourceName
           }
-        }
+        )
       }
     }
 
@@ -248,7 +280,7 @@ case class MessagesApi(messages: Map[String, Map[String, String]]) {
    */
   def translate(key: String, args: Seq[Any])(implicit lang: Lang): Option[String] = {
     val langsToTry: List[Lang] =
-      List(lang, Lang(lang.language, ""), Lang("default", ""))
+      List(lang, Lang(lang.language, ""), Lang("default", ""), Lang("default.play", ""))
     val pattern: Option[String] =
       langsToTry.foldLeft[Option[String]](None)((res, lang) =>
         res.orElse(messages.get(lang.code).flatMap(_.get(key))))
@@ -262,7 +294,7 @@ case class MessagesApi(messages: Map[String, Map[String, String]]) {
    * @return a boolean
    */
   def isDefinedAt(key: String)(implicit lang: Lang): Boolean = {
-    val langsToTry: List[Lang] = List(lang, Lang(lang.language, ""), Lang("default", ""))
+    val langsToTry: List[Lang] = List(lang, Lang(lang.language, ""), Lang("default", ""), Lang("default.play", ""))
 
     langsToTry.foldLeft[Boolean](false)({ (acc, lang) =>
       acc || messages.get(lang.code).map(_.isDefinedAt(key)).getOrElse(false)
@@ -274,39 +306,56 @@ case class MessagesApi(messages: Map[String, Map[String, String]]) {
 /**
  * Play Plugin for internationalisation.
  */
-class MessagesPlugin(app: Application) extends Plugin {
+trait MessagesPlugin extends Plugin {
+  def api: MessagesApi
+}
+
+class DefaultMessagesPlugin(app: Application) extends MessagesPlugin {
 
   import scala.collection.JavaConverters._
 
   import scalax.file._
   import scalax.io.JavaConverters._
 
-  private def loadMessages(file: String): Map[String, String] = {
-    app.classloader.getResources(file).asScala.toList.reverse.map { messageFile =>
-      new Messages.MessagesParser(messageFile.asInput, messageFile.toString).parse.map { message =>
-        message.key -> message.pattern
-      }.toMap
+  private lazy val messagesPrefix = app.configuration.getString("messages.path")
+  private lazy val pluginEnabled = app.configuration.getString("defaultmessagesplugin")
+
+  private def joinPaths(first: Option[String], second: String) = first match {
+    case Some(first) => new java.io.File(first, second).getPath
+    case None => second
+  }
+
+  protected def loadMessages(file: String): Map[String, String] = {
+    app.classloader.getResources(joinPaths(messagesPrefix, file)).asScala.toList.reverse.map { messageFile =>
+      Messages.messages(messageFile.asInput, messageFile.toString).fold(e => throw e, identity)
     }.foldLeft(Map.empty[String, String]) { _ ++ _ }
   }
 
-  private lazy val messages = {
-    MessagesApi {
-      Lang.availables(app).map(_.code).map { lang =>
-        (lang, loadMessages("messages." + lang))
-      }.toMap + ("default" -> loadMessages("messages"))
-    }
+  protected def messages = {
+    Lang.availables(app).map(_.code).map { lang =>
+      (lang, loadMessages("messages." + lang))
+    }.toMap
+      .+("default" -> loadMessages("messages"))
+      .+("default.play" -> loadMessages("messages.default"))
   }
+
+  /**
+   * Is this plugin enabled.
+   *
+   * {{{
+   * defaultmessagesplugin=disabled
+   * }}}
+   */
+  override def enabled = pluginEnabled.filter(_ == "disabled").isEmpty
 
   /**
    * The underlying internationalisation API.
    */
-  def api = messages
+  lazy val api = MessagesApi(messages)
 
   /**
    * Loads all configuration and message files defined in the classpath.
    */
-  override def onStart() {
-    messages
-  }
+  override def onStart() = api
 
 }

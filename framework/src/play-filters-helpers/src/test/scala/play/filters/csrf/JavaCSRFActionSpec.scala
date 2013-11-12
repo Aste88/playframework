@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.filters.csrf
 
 import play.api.libs.ws.WS.WSRequestHolder
@@ -12,8 +15,8 @@ import play.libs.F
  */
 object JavaCSRFActionSpec extends CSRFCommonSpecs {
 
-  def csrfCheckRequest[T](makeRequest: (WSRequestHolder) => Future[Response])(handleResponse: Response => T) = {
-    withServer {
+  def buildCsrfCheckRequest(configuration: (String, String)*) = new CsrfTester {
+    def apply[T](makeRequest: (WSRequestHolder) => Future[Response])(handleResponse: (Response) => T) = withServer(configuration) {
       case _ => new JavaAction() {
         def parser = annotations.parser
         def invocation = F.Promise.pure(new MyAction().check())
@@ -24,8 +27,8 @@ object JavaCSRFActionSpec extends CSRFCommonSpecs {
     }
   }
 
-  def csrfAddToken[T](makeRequest: (WSRequestHolder) => Future[Response])(handleResponse: Response => T) = {
-    withServer {
+  def buildCsrfAddToken(configuration: (String, String)*) = new CsrfTester {
+    def apply[T](makeRequest: (WSRequestHolder) => Future[Response])(handleResponse: (Response) => T) = withServer(configuration) {
       case _ => new JavaAction() {
         def parser = annotations.parser
         def invocation = F.Promise.pure(new MyAction().add())

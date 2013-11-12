@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package views.html.helper
 
 import org.specs2.mutable.Specification
@@ -37,6 +40,20 @@ object HelpersSpec extends Specification {
     }
   }
 
+
+  "@checkboxGroup" should {
+     "allow to check more than one checkbox" in {
+       val form = Form(single("hobbies" -> Forms.list(Forms.text))).fill(List("S", "B"))
+       val body = inputCheckboxGroup.apply(form("hobbies"), Seq(("S", "Surfing"), ("B", "Biking"))).body
+
+       // Append [] to the name for the form binding
+       body must contain( "name=\"hobbies[]\"" )
+
+       body must contain( """<input type="checkbox" id="hobbies_S" name="hobbies[]" value="S" checked >""" )
+       body must contain( """<input type="checkbox" id="hobbies_B" name="hobbies[]" value="B" checked >""" )
+     }
+  }
+
   "@select" should {
 
     "allow setting a custom id" in {
@@ -71,6 +88,19 @@ object HelpersSpec extends Specification {
       body must contain( """<option value="0" selected>""" )
       body must contain( """<option value="1" selected>""" )
     }
+  }
 
+  "@repeat" should {
+    "Work with i18n" in {
+      import play.api.i18n._
+      implicit val lang = Lang("en-US")
+
+      val roleForm = Form(single("role" -> Forms.text)).fill("foo")
+      val body = repeat.apply(roleForm("bar"), min = 1){ roleField =>
+        select.apply(roleField, Seq("baz" -> "qux"), '_default -> "Role")
+      }.mkString("")
+
+      body must contain("""label for="bar_0">bar.0""")
+    }
   }
 }

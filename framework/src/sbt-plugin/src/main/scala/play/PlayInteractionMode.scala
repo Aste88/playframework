@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play
 
 import jline.Terminal
@@ -37,8 +40,10 @@ object PlayConsoleInteractionMode extends PlayInteractionMode {
           case 4 | -1 =>
           // Note: we have to listen to -1 for jline2, for some reason...
           // STOP on Ctrl-D or EOF.
-          case 11 => consoleReader.clearScreen(); waitEOF()
-          case 10 => println(); waitEOF()
+          case 11 =>
+            consoleReader.clearScreen(); waitEOF()
+          case 10 =>
+            println(); waitEOF()
           case x => waitEOF()
         }
       }
@@ -48,9 +53,8 @@ object PlayConsoleInteractionMode extends PlayInteractionMode {
   def doWithoutEcho(f: => Unit): Unit = {
     withConsoleReader { consoleReader =>
       val terminal = consoleReader.getTerminal
-      val oldEcho = terminal.isEchoEnabled
       terminal.setEchoEnabled(false)
-      try f finally terminal.setEchoEnabled(oldEcho)
+      try f finally terminal.restore()
     }
   }
   override def waitForCancel(): Unit = waitForKey()

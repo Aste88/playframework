@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.data.validation
 
 import org.specs2.mutable._
@@ -8,6 +11,115 @@ import play.api.data.format.Formats._
 import play.api.data.validation.Constraints._
 
 object ValidationSpec extends Specification {
+
+  "text" should {
+    "throw an IllegalArgumentException if maxLength is negative" in {
+      {
+        Form(
+          "value" -> Forms.text(maxLength = -1)
+        ).bind(Map("value" -> "hello"))
+      }.must(throwAn[IllegalArgumentException])
+    }
+
+    "return a bound form with error if input is null, even if maxLength=0 " in {
+      Form("value" -> Forms.text(maxLength = 0)).bind(Map("value" -> null)).fold(
+        formWithErrors => { formWithErrors.errors.head.message must equalTo("error.maxLength") },
+        { textData => "The mapping should fail." must equalTo("Error") }
+      )
+    }
+
+    "throw an IllegalArgumentException if minLength is negative" in {
+      {
+        Form(
+          "value" -> Forms.text(minLength = -1)
+        ).bind(Map("value" -> "hello"))
+      }.must(throwAn[IllegalArgumentException])
+    }
+
+    "return a bound form with error if input is null, even if minLength=0" in {
+      Form("value" -> Forms.text(minLength = 0)).bind(Map("value" -> null)).fold(
+        formWithErrors => { formWithErrors.errors.head.message must equalTo("error.minLength") },
+        { textData => "The mapping should fail." must equalTo("Error") }
+      )
+    }
+  }
+
+  "nonEmptyText" should {
+    "return a bound form with error if input is null" in {
+      Form("value" -> nonEmptyText).bind(Map("value" -> null)).fold(
+        formWithErrors => { formWithErrors.errors.head.message must equalTo("error.required") },
+        { textData => "The mapping should fail." must equalTo("Error") }
+      )
+    }
+  }
+
+  "Constraints.pattern" should {
+    "throw an IllegalArgumentException if regex is null" in {
+      {
+        Form(
+          "value" -> Forms.text.verifying(Constraints.pattern(null, "nullRegex", "error"))
+        ).bind(Map("value" -> "hello"))
+      }.must(throwAn[IllegalArgumentException])
+    }
+
+    "throw an IllegalArgumentException if name is null" in {
+      {
+        Form(
+          "value" -> Forms.text.verifying(Constraints.pattern(".*".r, null, "error"))
+        ).bind(Map("value" -> "hello"))
+      }.must(throwAn[IllegalArgumentException])
+    }
+
+    "throw an IllegalArgumentException if error is null" in {
+      {
+        Form(
+          "value" -> Forms.text.verifying(pattern(".*".r, "nullRegex", null))
+        ).bind(Map("value" -> "hello"))
+      }.must(throwAn[IllegalArgumentException])
+    }
+
+  }
+
+  "Email contraint" should {
+    val valid = Seq(
+      """"Fred Bloggs"@example.com""",
+      """"Joe\\Blow"@example.com""",
+      """"Abc@def"@example.com""",
+      """customer/department=shipping@example.com""",
+      """$A12345@example.com""",
+      """!def!xyz%abc@example.com""",
+      """_somename@example.com"""
+      )
+    "validate valid addresses" in {
+      valid.map{ addr =>
+        Form( "value" -> email ).bind( Map( "value" -> addr) ).fold(
+          formWithErrors => false,
+          { _  => true}
+        )
+      }.exists(_.unary_!) must beFalse
+    }
+
+    val invalid = Seq(
+      "NotAnEmail",
+      "@NotAnEmail",
+      "\"\"test\blah\"\"@example.com",
+      "\"test\rblah\"@example.com",
+      "\"\"test\"\"blah\"\"@example.com",
+      ".wooly@example.com",
+      "wo..oly@example.com",
+      "pootietang.@example.com",
+      ".@example.com",
+      "Ima Fool@example.com"
+    )
+    "invalidate invalid addresses" in {
+      invalid.map{ addr =>
+        Form( "value" -> email ).bind( Map( "value" -> addr) ).fold(
+          formWithErrors => true,
+          { _  => false}
+        )
+      }.exists(_.unary_!) must beFalse
+    }
+  }
 
   "Min and max constraint on an Int" should {
     "5 must be a valid number(1,10)" in {

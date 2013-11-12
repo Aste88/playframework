@@ -1,9 +1,10 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.api.test
 
 import play.api.mvc._
 import play.api.libs.json.JsValue
-import collection.immutable.TreeMap
-import play.core.utils.CaseInsensitiveOrdered
 import scala.concurrent.Future
 import xml.NodeSeq
 import play.core.Router
@@ -27,7 +28,7 @@ case class FakeHeaders(override val data: Seq[(String, Seq[String])] = Seq.empty
  * @param body The request body.
  * @param remoteAddress The client IP.
  */
-case class FakeRequest[A](method: String, uri: String, headers: FakeHeaders, body: A, remoteAddress: String = "127.0.0.1", version: String = "HTTP/1.1", id: Long = 666, tags: Map[String, String] = Map.empty[String, String]) extends Request[A] {
+case class FakeRequest[A](method: String, uri: String, headers: FakeHeaders, body: A, remoteAddress: String = "127.0.0.1", version: String = "HTTP/1.1", id: Long = 666, tags: Map[String, String] = Map.empty[String, String], secure: Boolean = false) extends Request[A] {
 
   private def _copy[B](
     id: Long = this.id,
@@ -38,9 +39,10 @@ case class FakeRequest[A](method: String, uri: String, headers: FakeHeaders, bod
     version: String = this.version,
     headers: FakeHeaders = this.headers,
     remoteAddress: String = this.remoteAddress,
+    secure: Boolean = this.secure,
     body: B = this.body): FakeRequest[B] = {
     new FakeRequest[B](
-      method, uri, headers, body, remoteAddress, version, id, tags
+      method, uri, headers, body, remoteAddress, version, id, tags, secure
     )
   }
 
@@ -52,7 +54,8 @@ case class FakeRequest[A](method: String, uri: String, headers: FakeHeaders, bod
   /**
    * The request query String
    */
-  lazy val queryString: Map[String, Seq[String]] = play.core.parsers.FormUrlEncodedParser.parse(rawQueryString)
+  lazy val queryString: Map[String, Seq[String]] =
+    play.core.parsers.FormUrlEncodedParser.parse(rawQueryString)
 
   /**
    * Constructs a new request with additional headers. Any existing headers of the same name will be replaced.
@@ -101,7 +104,7 @@ case class FakeRequest[A](method: String, uri: String, headers: FakeHeaders, bod
    * Set a Form url encoded body to this request.
    */
   def withFormUrlEncodedBody(data: (String, String)*): FakeRequest[AnyContentAsFormUrlEncoded] = {
-    _copy(body = AnyContentAsFormUrlEncoded(data.groupBy(_._1).mapValues(_.map(_._2))))
+    _copy(body = AnyContentAsFormUrlEncoded(play.utils.OrderPreserving.groupBy(data.toSeq)(_._1)))
   }
 
   def certs = Future.successful(IndexedSeq.empty)
@@ -162,6 +165,11 @@ case class FakeRequest[A](method: String, uri: String, headers: FakeHeaders, bod
   def withBody[B](body: B): FakeRequest[B] = {
     _copy(body = body)
   }
+
+  /**
+   * Returns the current method
+   */
+  def getMethod: String = method
 }
 
 /**

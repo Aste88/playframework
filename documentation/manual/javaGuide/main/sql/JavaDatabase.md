@@ -1,8 +1,9 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # Accessing an SQL database
 
 ## Configuring JDBC connection pools
 
-Play provides a plugin for managing JDBC connection pools. You can configure as many databases you need.
+Play provides a plugin for managing JDBC connection pools. You can configure as many databases as you need.
 
 To enable the database plugin add javaJdbc in your build dependencies :
 

@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com>
+ */
 package play.data;
 
 import javax.validation.*;
@@ -18,6 +21,8 @@ import org.springframework.beans.*;
 import org.springframework.validation.*;
 import org.springframework.validation.beanvalidation.*;
 import org.springframework.context.support.*;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * Helper to manage HTML form description, submission and validation.
@@ -364,20 +369,17 @@ public class Form<T> {
                    errors.put(key, new ArrayList<ValidationError>());
                 }
 
-                String message = "error.invalid";
+                ValidationError validationError = null;
                 if( error.isBindingFailure() ){
-                    for(String code : error.getCodes() ){
-                        code = code.replace("typeMismatch", "error.invalid");
-                        if( play.i18n.Messages.isDefined(code) ){
-                            message = code;
-                            break;
-                        }
+                    ImmutableList.Builder<String> builder = ImmutableList.builder();
+                    for( String code: error.getCodes() ){
+                        builder.add( code.replace("typeMismatch", "error.invalid") );
                     }
+                    validationError = new ValidationError(key, builder.build(), arguments);
                 }else{
-                    message = error.getDefaultMessage();
+                    validationError = new ValidationError(key, error.getDefaultMessage(), arguments);
                 }
-
-                errors.get(key).add(new ValidationError(key, message, arguments));
+                errors.get(key).add(validationError);
             }
             return new Form(rootName, backedType, data, errors, None(), groups);
         } else {
@@ -524,7 +526,7 @@ public class Form<T> {
             if (errs != null && !errs.isEmpty()) {
                 List<String> messages = new ArrayList<String>();
                 for (ValidationError error : errs) {
-                    messages.add(play.i18n.Messages.get(lang, error.message(), error.arguments()));
+                    messages.add(play.i18n.Messages.get(lang, error.messages(), error.arguments()));
                 }
                 allMessages.put(key, messages);
             }
@@ -556,7 +558,7 @@ public class Form<T> {
      *
      * @param key the error key
      * @param error the error message
-     * @param args the errot arguments
+     * @param args the error arguments
      */
     public void reject(String key, String error, List<Object> args) {
         reject(new ValidationError(key, error, args));

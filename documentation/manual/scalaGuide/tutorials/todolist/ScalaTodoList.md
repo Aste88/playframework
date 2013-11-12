@@ -1,3 +1,4 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # Your first Play application
 
 Let’s write a simple to do list application with Play and deploy it to the cloud.
@@ -26,7 +27,7 @@ It will prompt you for a few questions. Select the _Create a simple Scala applic
 
 [[images/new.png]]
 
-The `play new` command creates a new directory `todolist/` and populates it with a series of files and directories, the most important being:
+The `play new todolist` command creates a new directory `todolist/` and populates it with a series of files and directories, the most important being:
 
 - `app/` contains the application’s core, split between models, controllers and views directories. This is the directory where .scala source files live.
 - `conf/` contains all the application’s configuration files, especially the main `application.conf` file, the `routes` definition files and the `messages` files used for internationalization.
@@ -263,7 +264,7 @@ We changed the template signature to take two parameters:
 
 We also imported `helper._` that gives us the form creation helpers, typically the `form` function, which creates an HTML `<form>` with filled `action` and `method` attributes, and the `inputText` function that creates an HTML input for a form field.
     
-> **Note:** Read more about the [[Templating system|ScalaTemplates]] and [[Forms helper|ScalaFormHelpers]].
+> **Note:** Read more about the [[Templating system|ScalaTemplates]] and [[form helpers|ScalaForms]].
     
 ## The task form
 
@@ -428,7 +429,7 @@ def deleteTask(id: Long) = Action {
 All features are complete, so it’s time to deploy our application to production. Let’s deploy it to Heroku. First, you need to create a `Procfile` for Heroku. Create the `Procfile` in the root application directory:
 
 ```
-web: target/start -Dhttp.port=${PORT} -DapplyEvolutions.default=true -Ddb.default.url=${DATABASE_URL} -Ddb.default.driver=org.postgresql.Driver
+web: target/universal/stage/bin/todolist -Dhttp.port=${PORT} -DapplyEvolutions.default=true -Ddb.default.url=${DATABASE_URL} -Ddb.default.driver=org.postgresql.Driver
 ```
 
 > **Note:** Read more about [[Deploying to Heroku|ProductionHeroku]].

@@ -1,3 +1,4 @@
+<!--- Copyright (C) 2009-2013 Typesafe Inc. <http://www.typesafe.com> -->
 # The Play WS API
 
 Sometimes we would like to call other HTTP services from within a Play application. Play supports this via its [WS library](api/scala/index.html#play.api.libs.ws.package), which provides a way to make asynchronous HTTP calls.
@@ -6,7 +7,15 @@ There are two important parts to using the WS API: making a request, and process
 
 ## Making a Request
 
-To use WS, first import the following:
+To use WS, first add `ws` to your `build.sbt` file:
+
+```scala
+libraryDependencies ++= Seq(
+  ws
+)
+```
+
+Then import the following:
 
 ```scala
 import play.api.libs.ws._
@@ -174,14 +183,12 @@ Using for comprehensions is a good way to chain WS calls in a trusted environmen
 
 ### Using in a controller
 
-You can compose several promises and end with a `Future[Result]` that can be handled directly by the Play server, using the `Async` method defined in [[Handling Asynchronous Results|ScalaAsync]].
+You can compose several promises and end with a `Future[Result]` that can be handled directly by the Play server, using the `Action.async` builder defined in [[Handling Asynchronous Results|ScalaAsync]].
 
 ```scala
-def feedTitle(feedUrl: String) = Action {
-  Async {
-    WS.url(feedUrl).get().map { response =>
-      Ok("Feed title: " + (response.json \ "title").as[String])
-    }
+def feedTitle(feedUrl: String) = Action.async {
+  WS.url(feedUrl).get().map { response =>
+    Ok("Feed title: " + (response.json \ "title").as[String])
   }
 }
 ```
@@ -205,7 +212,6 @@ This is important in a couple of cases.  WS has a couple of limitations that req
 
 Use the following properties to configure the WS client
 
-* `ws.timeout` sets both the connection and request timeout in milliseconds
 * `ws.followRedirects` configures the client to follow 301 and 302 redirects
 * `ws.useProxyProperties`to use the system http proxy settings(http.proxyHost, http.proxyPort) 
 * `ws.useragent` to configure the User-Agent header field
@@ -214,15 +220,13 @@ Use the following properties to configure the WS client
  
 ### Timeouts
 
-There ore 3 different timeouts in WS. Reaching a timeout causes the WS request to interrupt.
+There are 3 different timeouts in WS. Reaching a timeout causes the WS request to interrupt.
 
 * **Connection Timeout**: The maximum time to wait when connecting to the remote host *(default is **120 seconds**)*.
 * **Connection Idle Timeout**: The maximum time the request can stay idle (connexion is established but waiting for more data) *(default is **120 seconds**)*.
 * **Request Timeout**: The total time you accept a request to take (it will be interrupted, whatever if the remote host is still sending data) *(default is **none**, to allow stream consuming)*.
 
 You can define each timeout in `application.conf` with respectively: `ws.timeout.connection`, `ws.timeout.idle`, `ws.timeout.request`.
-
-Alternatively, `ws.timeout` can be defined to target both *Connection Timeout* and *Connection Idle Timeout*.
 
 The request timeout can be specified for a given connection with `withRequestTimeout`.
 
