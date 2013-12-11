@@ -45,6 +45,12 @@ package views.html.helper {
       args.get('_label).getOrElse(play.api.i18n.Messages(field.name))
     }
 
+    def hasName: Boolean = args.get('_name).isDefined
+
+    def name(implicit lang: play.api.i18n.Lang): Any = {
+      args.get('_name).getOrElse(play.api.i18n.Messages(field.name))
+    }
+
   }
 
   trait FieldConstructor extends NotNull {
@@ -80,6 +86,10 @@ package views.html.helper {
     def apply(options: List[String]) = options.map(v => v -> v)
     def apply(options: java.util.List[String]) = options.asScala.map(v => v -> v)
 
+  }
+
+  object Implicits {
+    implicit def toAttributePair(pair: (String, String)): (Symbol, String) = Symbol(pair._1) -> pair._2
   }
 
 }

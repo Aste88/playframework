@@ -11,14 +11,23 @@ object SqlParser {
 
   type ResultSet = Stream[Row]
 
-  def scalar[T](implicit transformer: Column[T]): RowParser[T] = RowParser[T] { row =>
-
-    (for {
-      meta <- row.metaData.ms.headOption.toRight(NoColumnsInReturnedResult)
-      value <- row.data.headOption.toRight(NoColumnsInReturnedResult)
-      result <- transformer(value, meta)
-    } yield result).fold(e => Error(e), a => Success(a))
-  }
+  /**
+   * Returns parser for a scalar not-null value.
+   *
+   * {{{
+   * val count = SQL("select count(*) from Country").as(scalar[Long].single)
+   * }}}
+   */
+  def scalar[T](implicit transformer: Column[T]): RowParser[T] =
+    new ScalarRowParser[T] {
+      def apply(row: Row): SqlResult[T] = {
+        (for {
+          meta <- row.metaData.ms.headOption.toRight(NoColumnsInReturnedResult)
+          value <- row.data.headOption.toRight(NoColumnsInReturnedResult)
+          result <- transformer(value, meta)
+        } yield result).fold(e => Error(e), a => Success(a))
+      }
+    }
 
   def flatten[T1, T2, R](implicit f: anorm.TupleFlattener[(T1 ~ T2) => R]): ((T1 ~ T2) => R) = f.f
 
@@ -122,10 +131,16 @@ trait RowParser[+A] extends (Row => SqlResult[A]) {
     }
   }
 
+  /**
+   * Returns a row parser for optional column,
+   * that will turn missing or null column as None.
+   */
   def ? : RowParser[Option[A]] = RowParser { row =>
     parent(row) match {
       case Success(a) => Success(Some(a))
-      case Error(_) => Success(None)
+      case Error(UnexpectedNullableFound(_)) | Error(ColumnNotFound(_, _)) =>
+        Success(None)
+      case e @ Error(f) => e
     }
   }
 
@@ -135,10 +150,38 @@ trait RowParser[+A] extends (Row => SqlResult[A]) {
 
   def + : ResultSetParser[List[A]] = ResultSetParser.nonEmptyList(parent)
 
+  /**
+   * Returns a result set parser expecting exactly one row to parse.
+   *
+   * {{{
+   * val b: Boolean = SQL("SELECT flag FROM Test WHERE id = :id").
+   *   on("id" -> 1).as(scalar[Boolean].single)
+   * }}}
+   */
   def single = ResultSetParser.single(parent)
 
-  def singleOpt = ResultSetParser.singleOpt(parent)
+  /**
+   * Returns a result set parser for none or one parsed row.
+   *
+   * {{{
+   * val name: Option[String] =
+   *   SQL("SELECT name FROM Country WHERE lang = :lang")
+   *   .on("lang" -> "notFound").as(scalar[String].singleOpt)
+   * }}}
+   */
+  def singleOpt: ResultSetParser[Option[A]] = ResultSetParser.singleOpt(parent)
 
+}
+
+sealed trait ScalarRowParser[+A] extends RowParser[A] {
+  override def singleOpt: ResultSetParser[Option[A]] = ResultSetParser {
+    case head #:: Stream.Empty if (head.data.headOption == Some(null)) =>
+      // one column present in head row, but column value is null
+      Success(None)
+    case head #:: Stream.Empty => map(Some(_))(head)
+    case Stream.Empty => Success(None)
+    case _ => Error(SqlMappingError("too many rows when expecting a single one"))
+  }
 }
 
 trait ResultSetParser[+A] extends (ResultSet => SqlResult[A]) {

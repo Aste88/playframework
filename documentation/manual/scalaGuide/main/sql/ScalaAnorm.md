@@ -7,7 +7,7 @@ Play includes a simple data access layer called Anorm that uses plain SQL to int
 
 > In the following documentation, we will use the [MySQL world sample database](http://dev.mysql.com/doc/index-other.html). 
 > 
-> If you want to enable it for your application, follow the MySQL website instructions, and configure it as  explained [[on the Scala database page | ScalaDatabase]].
+> If you want to enable it for your application, follow the MySQL website instructions, and configure it as explained [[on the Scala database page | ScalaDatabase]].
 
 ## Overview
 
@@ -78,8 +78,9 @@ val result: Int = SQL("delete from City where id = 99").executeUpdate()
 If you are inserting data that has an auto-generated `Long` primary key, you can call `executeInsert()`. If you have more than one generated key, or it is not a Long, `executeInsert` can be passed a `ResultSetParser` to return the correct key.
 
 ```scala
-val id: Option[Long] = SQL("insert into City(name, country) values ({name}, {country})")
-              .on('name -> "Cambridge", 'country -> "New Zealand").executeInsert()
+val id: Option[Long] = 
+  SQL("insert into City(name, country) values ({name}, {country})")
+  .on('name -> "Cambridge", 'country -> "New Zealand").executeInsert()
 ```
 Since Scala supports multi-line strings, feel free to use them for complex SQL statements:
 
@@ -150,6 +151,29 @@ val countries = SQL("Select name,population from Country")().collect {
 ```
 
 Note that since `collect(…)` ignores the cases where the partial function isn’t defined, it allows your code to safely ignore rows that you don’t expect.
+
+## Retrieving data along with execution context
+
+Moreover data, query execution involves context information like SQL warnings that may be raised (and may be fatal or not), especially when working with stored SQL procedure.
+
+Way to get context information along with query data is to use `executeQuery()`:
+
+```scala
+import anorm.SqlQueryResult
+
+val res: SqlQueryResult = SQL("EXEC stored_proc {code}").
+  on('code -> code).executeQuery()
+
+// Check execution context (there warnings) before going on
+val str: Option[String] =
+  res.statementWarning match {
+    case Some(warning) =>
+      warning.printStackTrace()
+      None
+
+    case _ => res.as(scalar[String].singleOpt) // go on row parsing
+  }
+```
 
 ## Special data types
 
@@ -234,7 +258,8 @@ val rsParser = scalar[Long].single
 So this parser will parse a result set to return a `Long`. It is useful to parse to result produced by a simple SQL `select count` query:
 
 ```scala
-val count: Long = SQL("select count(*) from Country").as(scalar[Long].single)
+val count: Long = 
+  SQL("select count(*) from Country").as(scalar[Long].single)
 ```
 
 
@@ -243,7 +268,9 @@ val count: Long = SQL("select count(*) from Country").as(scalar[Long].single)
 Let's say you want to retrieve the country_id from the country name, but the query might return null. We'll use the singleOpt parser :
 
 ```scala
-val countryId: Option[Long] = SQL("select country_id from Country C where C.country='France'").as(scalar[Long].singleOpt)
+val countryId: Option[Long] = 
+  SQL("select country_id from Country C where C.country='France'")
+  .as(scalar[Long].singleOpt)
 ```
 
 ### Getting a more complex result
@@ -264,7 +291,8 @@ You can also rewrite the same code as:
 
 ```scala
 val result:List[String~Int] = {
-  SQL("select * from Country").as(get[String]("name")~get[Int]("population")*) 
+  SQL("select * from Country")
+  .as(get[String]("name") ~ get[Int]("population")*) 
 }
 ```
 

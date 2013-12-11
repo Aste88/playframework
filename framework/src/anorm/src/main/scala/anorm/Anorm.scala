@@ -57,7 +57,8 @@ object Column {
 
   def nonNull[A](transformer: ((Any, MetaDataItem) => MayErr[SqlRequestError, A])): Column[A] = Column[A] {
     case (value, meta @ MetaDataItem(qualified, _, _)) =>
-      if (value != null) transformer(value, meta) else Left(UnexpectedNullableFound(qualified.toString))
+      if (value != null) transformer(value, meta)
+      else Left(UnexpectedNullableFound(qualified.toString))
   }
 
   implicit def rowToString: Column[String] = {
@@ -66,7 +67,7 @@ object Column {
       value match {
         case string: String => Right(string)
         case clob: java.sql.Clob => Right(clob.getSubString(1, clob.length.asInstanceOf[Int]))
-        case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to String for column " + qualified))
+        case _ => Left(TypeDoesNotMatch(s"Cannot convert $value:${value.asInstanceOf[AnyRef].getClass} to String for column $qualified"))
       }
     }
   }
@@ -120,16 +121,22 @@ object Column {
     }
   }
 
-  implicit def rowToBigInteger: Column[java.math.BigInteger] = Column.nonNull { (value, meta) =>
-    import java.math.BigInteger
+  // Used to convert Java or Scala big integer
+  private def anyToBigInteger(value: Any, meta: MetaDataItem): MayErr[SqlRequestError, java.math.BigInteger] = {
     val MetaDataItem(qualified, nullable, clazz) = meta
     value match {
-      case bi: BigInteger => Right(bi)
-      case int: Int => Right(BigInteger.valueOf(int))
-      case long: Long => Right(BigInteger.valueOf(long))
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to BigInteger for column " + qualified))
+      case bi: java.math.BigInteger => Right(bi)
+      case int: Int => Right(java.math.BigInteger.valueOf(int))
+      case long: Long => Right(java.math.BigInteger.valueOf(long))
+      case _ => Left(TypeDoesNotMatch(s"Cannot convert $value:${value.asInstanceOf[AnyRef].getClass} to BigInteger for column $qualified"))
     }
   }
+
+  implicit def rowToBigInteger: Column[java.math.BigInteger] =
+    Column.nonNull(anyToBigInteger)
+
+  implicit def rowToBigInt: Column[BigInt] =
+    Column.nonNull((value, meta) => anyToBigInteger(value, meta).map(BigInt(_)))
 
   implicit def rowToUUID: Column[UUID] = Column.nonNull { (value, meta) =>
     val MetaDataItem(qualified, nullable, clazz) = meta
@@ -139,15 +146,23 @@ object Column {
     }
   }
 
-  implicit def rowToBigDecimal: Column[java.math.BigDecimal] = Column.nonNull { (value, meta) =>
-    import java.math.BigDecimal
+  // Used to convert Java or Scala big decimal
+  private def anyToBigDecimal(value: Any, meta: MetaDataItem): MayErr[SqlRequestError, java.math.BigDecimal] = {
     val MetaDataItem(qualified, nullable, clazz) = meta
     value match {
       case bi: java.math.BigDecimal => Right(bi)
-      case double: Double => Right(new java.math.BigDecimal(double))
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass + " to BigDecimal for column " + qualified))
+      case double: Double => Right(java.math.BigDecimal.valueOf(double))
+      case l: Long => Right(java.math.BigDecimal.valueOf(l))
+      case _ => Left(TypeDoesNotMatch(s"Cannot convert $value:${value.asInstanceOf[AnyRef].getClass} to BigDecimal for column $qualified"))
     }
   }
+
+  implicit def rowToJavaBigDecimal: Column[java.math.BigDecimal] =
+    Column.nonNull(anyToBigDecimal)
+
+  implicit def rowToScalaBigDecimal: Column[BigDecimal] =
+    Column.nonNull((value, meta) =>
+      anyToBigDecimal(value, meta).map(BigDecimal(_)))
 
   implicit def rowToDate: Column[Date] = Column.nonNull { (value, meta) =>
     val MetaDataItem(qualified, nullable, clazz) = meta
@@ -300,7 +315,7 @@ trait Row {
 
 }
 
-case class MockRow(data: List[Any], metaData: MetaData) extends Row
+//case class MockRow(data: List[Any], metaData: MetaData) extends Row
 
 case class SqlRow(metaData: MetaData, data: List[Any]) extends Row {
   override def toString() = "Row(" + metaData.ms.zip(data).map(t => "'" + t._1.column + "':" + t._2 + " as " + t._1.clazz).mkString(", ") + ")"
@@ -310,6 +325,7 @@ object Useful {
 
   case class Var[T](var content: T)
 
+  @deprecated(message = "Use [[scala.collection.immutable.Stream.dropWhile]] directly", since = "2.3.0")
   def drop[A](these: Var[Stream[A]], n: Int): Stream[A] = {
     var count = n
     while (!these.content.isEmpty && count > 0) {
@@ -333,14 +349,15 @@ object Useful {
 
 trait ToStatement[A] { def set(s: java.sql.PreparedStatement, index: Int, aValue: A): Unit }
 object ToStatement {
+  import java.sql.PreparedStatement
 
   implicit def anyParameter[T] = new ToStatement[T] {
-    private def setAny(index: Int, value: Any, stmt: java.sql.PreparedStatement): java.sql.PreparedStatement = {
+    private def setAny(index: Int, value: Any, stmt: PreparedStatement): PreparedStatement = {
       value match {
-        case Some(bd: java.math.BigDecimal) => stmt.setBigDecimal(index, bd)
-        case Some(o) => stmt.setObject(index, o)
+        case Some(o) => setAny(index, o, stmt)
         case None => stmt.setObject(index, null)
-        case bd: java.math.BigDecimal => stmt.setBigDecimal(index, bd)
+        case jbd: java.math.BigDecimal => stmt.setBigDecimal(index, jbd)
+        case sbd: BigDecimal => stmt.setBigDecimal(index, sbd.bigDecimal)
         case date: java.util.Date => stmt.setTimestamp(index, new java.sql.Timestamp(date.getTime()))
         case Id(id) => stmt.setObject(index, id)
         case NotAssigned => stmt.setObject(index, null)
@@ -349,29 +366,15 @@ object ToStatement {
       stmt
     }
 
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: T): Unit = setAny(index, aValue, s)
-  }
-
-  implicit val dateToStatement = new ToStatement[java.util.Date] {
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: java.util.Date): Unit = s.setTimestamp(index, new java.sql.Timestamp(aValue.getTime()))
-
-  }
-
-  implicit def optionToStatement[A](implicit ts: ToStatement[A]): ToStatement[Option[A]] = new ToStatement[Option[A]] {
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: Option[A]): Unit = {
-      aValue match {
-        case Some(o) => ts.set(s, index, o)
-        case None => s.setObject(index, null)
-      }
-    }
+    def set(s: PreparedStatement, index: Int, v: T): Unit = setAny(index, v, s)
   }
 
   implicit val uuidToStatement = new ToStatement[UUID] {
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: UUID): Unit = s.setObject(index, aValue)
+    def set(s: PreparedStatement, index: Int, aValue: UUID): Unit = s.setObject(index, aValue)
   }
 
   implicit def pkToStatement[A](implicit ts: ToStatement[A]): ToStatement[Pk[A]] = new ToStatement[Pk[A]] {
-    def set(s: java.sql.PreparedStatement, index: Int, aValue: Pk[A]): Unit =
+    def set(s: PreparedStatement, index: Int, aValue: Pk[A]): Unit =
       aValue match {
         case Id(id) => ts.set(s, index, id)
         case NotAssigned => s.setObject(index, null)
@@ -381,18 +384,44 @@ object ToStatement {
 }
 
 import SqlParser._
-case class ParameterValue[A](aValue: A, statementSetter: ToStatement[A]) {
-  def set(s: java.sql.PreparedStatement, index: Int) = statementSetter.set(s, index, aValue)
+
+/**
+ * Prepared parameter value.
+ */
+trait ParameterValue {
+
+  /**
+   * Sets this value on given statement at specified index.
+   *
+   * @param s SQL Statement
+   * @param index Parameter index
+   */
+  def set(s: java.sql.PreparedStatement, index: Int): Unit
 }
 
-case class SimpleSql[T](sql: SqlQuery, params: Seq[(String, ParameterValue[_])], defaultParser: RowParser[T]) extends Sql {
+/**
+ * Value factory for parameter.
+ *
+ * {{{
+ * val param = ParameterValue("str", setter)
+ *
+ * SQL("...").onParams(param)
+ * }}}
+ */
+object ParameterValue {
+  def apply[A](value: A, setter: ToStatement[A]) = new ParameterValue {
+    def set(s: java.sql.PreparedStatement, i: Int) = setter.set(s, i, value)
+  }
+}
 
-  def on(args: (Any, ParameterValue[_])*): SimpleSql[T] = this.copy(params = (this.params) ++ args.map {
+case class SimpleSql[T](sql: SqlQuery, params: Seq[(String, ParameterValue)], defaultParser: RowParser[T]) extends Sql {
+
+  def on(args: (Any, ParameterValue)*): SimpleSql[T] = this.copy(params = (this.params) ++ args.map {
     case (s: Symbol, v) => (s.name, v)
     case (k, v) => (k.toString, v)
   })
 
-  def onParams(args: ParameterValue[_]*): SimpleSql[T] = this.copy(params = (this.params) ++ sql.argsInitialOrder.zip(args))
+  def onParams(args: ParameterValue*): SimpleSql[T] = this.copy(params = (this.params) ++ sql.argsInitialOrder.zip(args))
 
   def list()(implicit connection: java.sql.Connection): Seq[T] = as(defaultParser*)
 
@@ -422,13 +451,13 @@ case class SimpleSql[T](sql: SqlQuery, params: Seq[(String, ParameterValue[_])],
   def withQueryTimeout(seconds: Option[Int]): SimpleSql[T] = this.copy(sql = sql.withQueryTimeout(seconds))
 }
 
-case class BatchSql(sql: SqlQuery, params: Seq[Seq[(String, ParameterValue[_])]]) {
+case class BatchSql(sql: SqlQuery, params: Seq[Seq[(String, ParameterValue)]]) {
 
-  def addBatch(args: (String, ParameterValue[_])*): BatchSql = this.copy(params = (this.params) :+ args)
-  def addBatchList(paramsMapList: TraversableOnce[Seq[(String, ParameterValue[_])]]): BatchSql = this.copy(params = (this.params) ++ paramsMapList)
+  def addBatch(args: (String, ParameterValue)*): BatchSql = this.copy(params = (this.params) :+ args)
+  def addBatchList(paramsMapList: TraversableOnce[Seq[(String, ParameterValue)]]): BatchSql = this.copy(params = (this.params) ++ paramsMapList)
 
-  def addBatchParams(args: ParameterValue[_]*): BatchSql = this.copy(params = (this.params) :+ sql.argsInitialOrder.zip(args))
-  def addBatchParamsList(paramsSeqList: TraversableOnce[Seq[ParameterValue[_]]]): BatchSql = this.copy(params = (this.params) ++ paramsSeqList.map(paramsSeq => sql.argsInitialOrder.zip(paramsSeq)))
+  def addBatchParams(args: ParameterValue*): BatchSql = this.copy(params = (this.params) :+ sql.argsInitialOrder.zip(args))
+  def addBatchParamsList(paramsSeqList: TraversableOnce[Seq[ParameterValue]]): BatchSql = this.copy(params = (this.params) ++ paramsSeqList.map(paramsSeq => sql.argsInitialOrder.zip(paramsSeq)))
 
   def getFilledStatement(connection: java.sql.Connection, getGeneratedKeys: Boolean = false) = {
     val statement = if (getGeneratedKeys) connection.prepareStatement(sql.query, java.sql.Statement.RETURN_GENERATED_KEYS)
@@ -448,6 +477,7 @@ case class BatchSql(sql: SqlQuery, params: Seq[Seq[(String, ParameterValue[_])]]
     })
   }
 
+  @deprecated(message = "Use [[getFilledStatement]]", since = "2.3.0")
   def filledStatement(implicit connection: java.sql.Connection) = getFilledStatement(connection)
 
   def execute()(implicit connection: java.sql.Connection): Array[Int] = getFilledStatement(connection).executeBatch()
@@ -462,6 +492,7 @@ trait Sql {
 
   def getFilledStatement(connection: java.sql.Connection, getGeneratedKeys: Boolean = false): java.sql.PreparedStatement
 
+  @deprecated(message = "Use [[getFilledStatement]] or [[executeQuery]]", since = "2.3.0")
   def filledStatement(implicit connection: java.sql.Connection) = getFilledStatement(connection)
 
   def apply()(implicit connection: java.sql.Connection) = Sql.resultSetToStream(resultSet())
@@ -494,6 +525,21 @@ trait Sql {
     Sql.as(generatedKeysParser, execute1(getGeneratedKeys = true)._1.getGeneratedKeys)
   }
 
+  /**
+   * Executes this SQL query, and returns its result.
+   *
+   * {{{
+   * implicit val conn: java.sql.Connection = openConnection
+   * val res: SqlQueryResult =
+   *   SQL("SELECT text_col FROM table WHERE id = {code}").
+   *   on('code -> code).executeQuery()
+   * // Check execution context; e.g. res.statementWarning
+   * val str = res as scalar[String].single // going with row parsing
+   * }}}
+   */
+  def executeQuery()(implicit connection: java.sql.Connection): SqlQueryResult =
+    SqlQueryResult(resultSet())
+
 }
 
 case class SqlQuery(query: String, argsInitialOrder: List[String] = List.empty, queryTimeout: Option[Int] = None) extends Sql {
@@ -510,6 +556,51 @@ case class SqlQuery(query: String, argsInitialOrder: List[String] = List.empty, 
   def asSimple[T](parser: RowParser[T] = defaultParser): SimpleSql[T] = SimpleSql(this, Nil, parser)
 
   def asBatch[T]: BatchSql = BatchSql(this, Nil)
+}
+
+/**
+ * A result from execution of an SQL query, row data and context
+ * (e.g. statement warnings).
+ *
+ * @constructor create a result with a result set
+ * @param resultSet Result set from executed query
+ */
+case class SqlQueryResult(resultSet: java.sql.ResultSet) {
+  import SqlParser._
+
+  /** Query statement already executed */
+  val statement: java.sql.Statement = resultSet.getStatement
+
+  /**
+   * Returns statement warning if there is some for this result.
+   *
+   * {{{
+   * val res = SQL("EXEC stored_proc {p}").on('p -> paramVal).executeQuery()
+   * res.statementWarning match {
+   *   case Some(warning) =>
+   *     warning.printStackTrace()
+   *     None
+   *
+   *   case None =>
+   *     // go on with row parsing ...
+   *     res.as(scalar[String].singleOpt)
+   * }
+   * }}}
+   */
+  def statementWarning: Option[java.sql.SQLWarning] =
+    Option(statement.getWarnings)
+
+  def apply()(implicit connection: java.sql.Connection) = Sql.resultSetToStream(resultSet)
+
+  def as[T](parser: ResultSetParser[T])(implicit connection: java.sql.Connection): T = Sql.as[T](parser, resultSet)
+
+  def list[A](rowParser: RowParser[A])(implicit connection: java.sql.Connection): Seq[A] = as(rowParser *)
+
+  def single[A](rowParser: RowParser[A])(implicit connection: java.sql.Connection): A = as(ResultSetParser.single(rowParser))
+
+  def singleOpt[A](rowParser: RowParser[A])(implicit connection: java.sql.Connection): Option[A] = as(ResultSetParser.singleOpt(rowParser))
+
+  def parse[T](parser: ResultSetParser[T])(implicit connection: java.sql.Connection): T = Sql.parse[T](parser, resultSet)
 }
 
 object Sql {

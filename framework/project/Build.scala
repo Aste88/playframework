@@ -160,7 +160,8 @@ object PlayBuild extends Build {
     )
 
   lazy val AnormProject = PlayRuntimeProject("Anorm", "anorm")
-    .settings(libraryDependencies ++= anormDependencies)
+    .settings(libraryDependencies ++= anormDependencies,
+      resolvers += "Applicius Releases Repository" at "https://raw.github.com/applicius/mvn-repo/master/releases/")
 
   lazy val IterateesProject = PlayRuntimeProject("Play-Iteratees", "iteratees")
     .settings(libraryDependencies := iterateesDependencies)
@@ -260,7 +261,6 @@ object PlayBuild extends Build {
     .settings(
       scriptedLaunchOpts <++= (baseDirectory in ThisBuild) { baseDir =>
         Seq(
-          "-Dsbt.ivy.home=" + new File(baseDir.getParent, "repository"),
           "-Dsbt.boot.directory=" + new File(baseDir, "sbt/boot"),
           "-Dplay.home=" + System.getProperty("play.home"),
           "-XX:MaxPermSize=384M",
@@ -284,9 +284,10 @@ object PlayBuild extends Build {
 
   lazy val PlayWsJavaProject = PlayRuntimeProject("Play-Java-WS", "play-java-ws")
       .settings(
+        libraryDependencies := playWsDeps,
         parallelExecution in Test := false
       ).dependsOn(PlayProject)
-    .dependsOn(PlayWsProject)
+    .dependsOn(PlayWsProject, PlayJavaProject)
 
   lazy val PlayFiltersHelpersProject = PlayRuntimeProject("Filters-Helpers", "play-filters-helpers")
     .settings(
